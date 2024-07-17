@@ -1,0 +1,86 @@
+version: '3.7'
+services:
+
+    # PHP-FPM Service
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            
+        container_name: app
+        restart: unless-stopped
+        tty: true
+        working_dir: /var/www
+        
+        volumes:
+            - ./:/var/www
+            - ./docker-files/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+            
+        networks:
+            - app-network
+        
+    # NGINX service
+    webserver:
+        image: nginx:alpine
+        container_name: webserver
+        restart: unless-stopped
+        tty: true
+        
+        ports:
+            - "8000:80"
+            - "8143:443"
+            
+        volumes:
+            - ./:/var/www
+            - ./docker-files/nginx/conf.d/:/etc/nginx/conf.d/
+            
+        networks:
+            - app-network
+        
+    # mysql - Service
+    mysql:
+        image: mysql:8.0
+        container_name: mysql
+        restart: unless-stopped
+        tty: true
+        
+        ports:
+            - "3306:3306"
+            
+        environment:
+            MYSQL_DATABASE: '${DB_DATABASE}'
+            MYSQL_USER: '${DB_USERNAME}'
+            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_PASSWORD: '${DB_PASSWORD}'
+            
+        volumes:
+            - db-data:/var/lib/mysql
+            - ./docker-files/mysql/my.cnf:/etc/mysql/my.cnf
+            
+        networks:
+            - app-network
+            
+    # phpMyAdmin - Service
+    phpmyadmin:
+        container_name: phpmyadmin
+        restart: unless-stopped
+        depends_on: 
+            - mysql
+        image: phpmyadmin/phpmyadmin
+        environment:
+            - PMA_HOST=mysql
+            - PMA_PORT=3306
+        networks:
+            - app-network
+        ports:
+            - 8001:80
+    
+# Volumes
+volumes:
+  db-data:
+    driver: local
+    
+# Networks
+networks:
+  app-network:
+    driver: bridge
